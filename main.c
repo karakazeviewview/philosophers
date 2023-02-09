@@ -6,13 +6,13 @@
 /*   By: mmatsuo <mmatsuo@student.42tokyo.jp>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/02/09 00:11:55 by mmatsuo           #+#    #+#             */
-/*   Updated: 2023/02/09 20:06:30 by mmatsuo          ###   ########.fr       */
+/*   Updated: 2023/02/10 05:02:51 by mmatsuo          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philosophers.h"
 # include <stdlib.h>
-void	*monitor(void *arg_void);
+void		*monitor(void *arg_void);
 inline long	calc_elapsed_time(long *start_time);
 static bool	is_philo_starve(t_data *arg);
 
@@ -89,21 +89,6 @@ static int	ft_check_over(int sign, long ans, char c)
 	return (0);
 }
 
-bool	check_arg(int argc, char const **argv)
-{
-	int		sign;
-	long	ans;
-	char	c;
-
-	if (argc < 5 || 6 < argc)
-		return (print_error(ERROR_ARG_INVALID));
-	check_isnum(/* char const */ argv);
-		/* code */
-	ft_check_over(/* int */ sign, /* long */ ans , /* char */ c);
-		/* code */
-	return (true);
-}
-
 long	ft_atol(const char *str)
 {
 	int		sign;
@@ -131,6 +116,23 @@ long	ft_atol(const char *str)
 	return (total);
 }
 
+bool	check_arg(int argc, char const **argv)
+{
+	int		sign;
+	long	ans;
+	char	c;
+
+	if (ft_atol(argv[1]) == 1)
+		return (print_error(ERROR_ARG_INVALID));
+	if (argc < 5 || 6 < argc)
+		return (print_error(ERROR_ARG_INVALID));
+	check_isnum(/* char const */ argv);
+		/* code */
+	ft_check_over(/* int */ sign, /* long */ ans , /* char */ c);
+		/* code */
+	return (true);
+}
+
 void	input_data(int argc, char const **argv, t_data *data)
 {
 	// atoi -> ft_atol
@@ -141,7 +143,7 @@ void	input_data(int argc, char const **argv, t_data *data)
 	if (argc == 5)
 		data->philo_must_eat = LONG_MAX;
 	else
-		data->philo_must_eat = atoi(argv[5]);
+		data->philo_must_eat = ft_atol(argv[5]);
 }
 
 void	init_mutex(t_data *data)
@@ -174,7 +176,7 @@ void	init_philo(t_data *data, t_philo *philo, int i)
 
 void	init_data(int argc, char const **argv, t_data *data)
 {
-	int		i;
+	int	i;
 
 	input_data(argc, argv, data);
 	init_mutex(data);
@@ -234,7 +236,8 @@ bool	philo_eat(t_data *data, t_philo *philo)
 	}
 	philo->num_of_eaten += 1;
 	pthread_mutex_unlock(&data->philo_mtx[philo->id - 1]);
-	usleep(data->time_to_eat * 1000); // 個々の関数を最適化すること!!
+	// usleep(data->time_to_eat * 1000); // 個々の関数を最適化すること!!
+	usleep(data->time_to_eat * 800);
 	pthread_mutex_unlock(philo->fork_left);
 	pthread_mutex_unlock(philo->fork_right);
 	return (true);
@@ -252,7 +255,7 @@ bool	philo_think(t_data *data, t_philo *philo)
 {
 	if (!print_state(data, get_time() - data->time_start, philo->id, STATE_THINK))
 		return (false);
-	usleep(300);
+	usleep(300); // 100でも良い?
 	return (true);
 }
 
@@ -265,7 +268,7 @@ void	*philo_routine(void *philo_void)
 	{
 		if (!philo_think(philo->data, philo))
 			return (NULL);
-		usleep(100);
+		usleep(100); // ok!
 	}
 	while (1)
 	{
@@ -368,6 +371,8 @@ void	create_thread(t_data *data)
 		i++;
 	}
 	// pthread_create(MONITOR);
+	// pthread_create(pthread_t * thread, pthread_attr_t * attr,
+	// 		void * (*start_routine)(void *), void * arg);
 	pthread_create(&data->thread_monitor, NULL, monitor, data);
 	return ;
 }
@@ -382,8 +387,9 @@ void	join_thread(t_data *data)
 		pthread_join(data->philo[i].thread, NULL);
 		i++;
 	}
-	// pthread_join(MONITOR);
-	pthread_create(&data->thread_monitor, NULL, monitor, data);
+	pthread_join(data->thread_monitor, NULL);
+	// pthread_join(MONITOR)		
+	// pthead_join(pthread_t thread, void **retval);;
 	return ;
 }
 
@@ -416,6 +422,6 @@ int main(int argc, char const *argv[])
 
 //atoi などの変更 ok
 //モニターを作ってみる
-//一人の場合の例外処理
-//usleep最適化
+//一人の場合の例外処理 ok
+//usleep最適化 ok?
 //エラー処理 ok
