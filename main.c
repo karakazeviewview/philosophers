@@ -6,12 +6,16 @@
 /*   By: mmatsuo <mmatsuo@student.42tokyo.jp>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/02/09 00:11:55 by mmatsuo           #+#    #+#             */
-/*   Updated: 2023/02/09 17:42:16 by mmatsuo          ###   ########.fr       */
+/*   Updated: 2023/02/11 02:33:11 by mmatsuo          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philosophers.h"
 # include <stdlib.h>
+void		*monitor(void *arg_void);
+static inline long	calc_elapsed_time(long *start_time);
+static bool	is_philo_starve(t_data *arg);
+
 
 time_t	get_time(void)
 {
@@ -85,21 +89,6 @@ static int	ft_check_over(int sign, long ans, char c)
 	return (0);
 }
 
-bool	check_arg(int argc, char const **argv)
-{
-	int		sign;
-	long	ans;
-	char	c;
-
-	if (argc < 5 || 6 < argc)
-		return (print_error(ERROR_ARG_INVALID));
-	check_isnum(/* char const */ argv);
-		/* code */
-	ft_check_over(/* int */ sign, /* long */ ans , /* char */ c);
-		/* code */
-	return (true);
-}
-
 long	ft_atol(const char *str)
 {
 	int		sign;
@@ -127,6 +116,23 @@ long	ft_atol(const char *str)
 	return (total);
 }
 
+bool	check_arg(int argc, char const **argv)
+{
+	int		sign;
+	long	ans;
+	char	c;
+
+	if (ft_atol(argv[1]) == 1)
+		return (print_error(ERROR_ARG_INVALID));
+	if (argc < 5 || 6 < argc)
+		return (print_error(ERROR_ARG_INVALID));
+	check_isnum(/* char const */ argv);
+		/* code */
+	ft_check_over(/* int */ sign, /* long */ ans , /* char */ c);
+		/* code */
+	return (true);
+}
+
 void	input_data(int argc, char const **argv, t_data *data)
 {
 	// atoi -> ft_atol
@@ -137,7 +143,7 @@ void	input_data(int argc, char const **argv, t_data *data)
 	if (argc == 5)
 		data->philo_must_eat = LONG_MAX;
 	else
-		data->philo_must_eat = atoi(argv[5]);
+		data->philo_must_eat = ft_atol(argv[5]);
 }
 
 void	init_mutex(t_data *data)
@@ -170,7 +176,7 @@ void	init_philo(t_data *data, t_philo *philo, int i)
 
 void	init_data(int argc, char const **argv, t_data *data)
 {
-	int		i;
+	int	i;
 
 	input_data(argc, argv, data);
 	init_mutex(data);
@@ -203,6 +209,8 @@ bool	philo_take_fork(t_data *data, t_philo *philo)
 	if (!print_state(data, get_time() - data->time_start, philo->id, STATE_FORK))
 	{
 		pthread_mutex_unlock(philo->fork_left);
+		if (data->num_philo == 1)
+			usleep(data->time_to_die * 1000 + 100); // ok!
 		return (false);
 	}
 	pthread_mutex_lock(philo->fork_right);
@@ -220,8 +228,8 @@ bool	philo_eat(t_data *data, t_philo *philo)
 	if (!philo_take_fork(data, philo))
 		return (false);
 	pthread_mutex_lock(&data->philo_mtx[philo->id - 1]);
-	philo->time_last_eat = get_time() - data->time_start;
-	if (!print_state(data, philo->time_last_eat, philo->id, STATE_EAT))
+	philo->time_last_eat = get_time();
+	if (!print_state(data, philo->time_last_eat - philo->time_start, philo->id, STATE_EAT))
 	{
 		pthread_mutex_unlock(&data->philo_mtx[philo->id - 1]);
 		pthread_mutex_unlock(philo->fork_left);
@@ -230,7 +238,8 @@ bool	philo_eat(t_data *data, t_philo *philo)
 	}
 	philo->num_of_eaten += 1;
 	pthread_mutex_unlock(&data->philo_mtx[philo->id - 1]);
-	usleep(data->time_to_eat * 1000); // 個々の関数を最適化すること!!
+	// usleep(data->time_to_eat * 1000); // 個々の関数を最適化すること!!
+	usleep(data->time_to_eat * 800); // ok!
 	pthread_mutex_unlock(philo->fork_left);
 	pthread_mutex_unlock(philo->fork_right);
 	return (true);
@@ -248,7 +257,7 @@ bool	philo_think(t_data *data, t_philo *philo)
 {
 	if (!print_state(data, get_time() - data->time_start, philo->id, STATE_THINK))
 		return (false);
-	usleep(300);
+	usleep(300); // 100でも良い?
 	return (true);
 }
 
@@ -257,20 +266,103 @@ void	*philo_routine(void *philo_void)
 	t_philo	*philo;
 
 	philo = philo_void;
+	philo->time_start = get_time();
+	philo->time_last_eat = philo->time_start;
 	if (philo->id % 2 == 0)
 	{
 		if (!philo_think(philo->data, philo))
 			return (NULL);
-		usleep(100);
+		usleep(100); // ok!
 	}
 	while (1)
 	{
+		//if (!philo_take_fork(philo->data, philo))
+			//break ;
 		if (!philo_eat(philo->data, philo))
 			break ;
 		if (!philo_sleep(philo->data, philo))
 			break ;
 		if (!philo_think(philo->data, philo))
 			break ;
+	}
+	return (NULL);
+}
+
+static inline time_t	calc_elapsed_time(time_t *start_time)
+{
+	struct timeval	timeval;
+
+	gettimeofday(&timeval, NULL);
+	return (timeval.tv_sec * 1000 + timeval.tv_usec / 1000 - *start_time);
+}
+
+static bool	is_philo_starve(t_data *arg)
+{
+	int	i;
+	
+	i = 0;
+	while (i < arg->num_philo)
+	{
+		pthread_mutex_lock(&arg->philo_mtx[i]);
+		// if (arg->time_to_die < calc_elapsed_time(&arg->philo[i].time_last_eat))
+		if (arg->time_to_die < get_time() - arg->philo[i].time_last_eat)
+		{
+			printf("------------------------------------------------\n");
+			pthread_mutex_unlock(&arg->philo_mtx[i]);
+			arg->dead_num = 1;
+			return (true);
+		}
+		pthread_mutex_unlock(&arg->philo_mtx[i]);
+		i++;
+	}
+	// pthread_mutex_unlock(&arg->philo_mtx[i]);
+	return (false);
+}
+
+static bool	is_num_of_eat_reached(t_data *arg)
+{
+	int	i;
+
+	i = 0;
+	while (i < arg->num_philo)
+	{
+		pthread_mutex_lock(&arg->philo_mtx[i]);
+		if (arg->philo_must_eat <= arg->philo[i].num_of_eaten)
+		{
+			pthread_mutex_unlock(&arg->philo_mtx[i]);
+			return (true);
+		}
+		pthread_mutex_unlock(&arg->philo_mtx[i]);
+		i++;
+	}
+	return (false);
+}
+
+void	*monitor(void *arg_void)
+{
+	t_data	*arg;
+	
+	arg = arg_void;
+	usleep(arg->time_to_die / 2); // ok!
+	while (1)
+	{
+		if (is_philo_starve(arg))
+		{
+			pthread_mutex_lock(&arg->write_finish_mtx);
+			printf("%ld %d %s\n",
+				calc_elapsed_time(&arg->philo[arg->dead_num].time_start),
+				arg->dead_num + 1, STATE_DIED);
+			arg->is_finish = true;
+			pthread_mutex_unlock(&arg->write_finish_mtx);
+			break ;
+		}
+		if (is_num_of_eat_reached(arg))
+		{
+			pthread_mutex_lock(&arg->write_finish_mtx);
+			arg->is_finish = true;
+			pthread_mutex_unlock(&arg->write_finish_mtx);
+			break ;
+		}
 	}
 	return (NULL);
 }
@@ -287,6 +379,10 @@ void	create_thread(t_data *data)
 		i++;
 	}
 	// pthread_create(MONITOR);
+	// pthread_create(pthread_t * thread, pthread_attr_t * attr,
+	// 		void * (*start_routine)(void *), void * arg);
+	pthread_create(&data->thread_monitor, NULL, monitor, data);
+	return ;
 }
 
 void	join_thread(t_data *data)
@@ -299,7 +395,10 @@ void	join_thread(t_data *data)
 		pthread_join(data->philo[i].thread, NULL);
 		i++;
 	}
-	// pthread_join(MONITOR);
+	pthread_join(data->thread_monitor, NULL);
+	// pthread_join(MONITOR)		
+	// pthead_join(pthread_t thread, void **retval);;
+	return ;
 }
 
 void	terminate_data(t_data *data)
@@ -330,7 +429,30 @@ int main(int argc, char const *argv[])
 }
 
 //atoi などの変更 ok
-//モニターを作ってみる
-//一人の場合の例外処理
-//usleep最適化
+//モニターを作ってみる ok
+//一人の場合の例外処理 ok
+//usleep最適化 ?
 //エラー処理 ok
+
+/*
+不具合原因の可能性高し!!
+bool	philo_take_fork(t_data *data, t_philo *philo)
+{
+	pthread_mutex_lock(philo->fork_left);
+	if (!print_state(data, get_time() - data->time_start, philo->id, STATE_FORK))
+	{
+		pthread_mutex_unlock(philo->fork_left);
+		// 以下の2行が書かれていなかった
+		if (data->num_philo == 1)
+			usleep(data->time_to_die * 1000 + 100);
+		return (false);
+*/
+
+/*
+以下のtime_wait関数は使うべきか?
+void	time_wait(long target_time, t_philo *philo)
+{
+	while (calc_elapsed_time(&philo->time_start) < target_time)
+		usleep(100);
+}
+*/
