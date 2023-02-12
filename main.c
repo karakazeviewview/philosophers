@@ -122,7 +122,7 @@ bool	check_arg(int argc, char const **argv)
 	long	ans;
 	char	c;
 
-	if (ft_atol(argv[1]) == 1)
+	if (ft_atol(argv[1]) < 1)
 		return (print_error(ERROR_ARG_INVALID));
 	if (argc < 5 || 6 < argc)
 		return (print_error(ERROR_ARG_INVALID));
@@ -206,7 +206,7 @@ bool	print_state(t_data *data, time_t now, int id, const char *state)
 bool	philo_take_fork(t_data *data, t_philo *philo)
 {
 	pthread_mutex_lock(philo->fork_left);
-	if (!print_state(data, get_time() - data->time_start, philo->id, STATE_FORK))
+	if (!print_state(data, get_time() - data->time_start, philo->id, STATE_FORK) || data->num_philo == 1)
 	{
 		pthread_mutex_unlock(philo->fork_left);
 		if (data->num_philo == 1)
@@ -229,7 +229,7 @@ bool	philo_eat(t_data *data, t_philo *philo)
 		return (false);
 	pthread_mutex_lock(&data->philo_mtx[philo->id - 1]);
 	philo->time_last_eat = get_time();
-	if (!print_state(data, philo->time_last_eat - philo->time_start, philo->id, STATE_EAT))
+	if (!print_state(data, philo->time_last_eat - data->time_start, philo->id, STATE_EAT))
 	{
 		pthread_mutex_unlock(&data->philo_mtx[philo->id - 1]);
 		pthread_mutex_unlock(philo->fork_left);
@@ -238,8 +238,23 @@ bool	philo_eat(t_data *data, t_philo *philo)
 	}
 	philo->num_of_eaten += 1;
 	pthread_mutex_unlock(&data->philo_mtx[philo->id - 1]);
-	// usleep(data->time_to_eat * 1000); // 個々の関数を最適化すること!!
-	usleep(data->time_to_eat * 800); // ok!
+	usleep(data->time_to_eat * 1000); // ok!
+
+	/*
+	usleep(data->time_to_eat * 800);
+	while (get_time() - data->time_start >= data->time_to_eat)
+		usleep(100);
+	*/
+
+	/*
+	static void	time_wait(philo, time_start_sleep + arg->time_to_sleep, arg->time_to_sleep)
+	{
+		usleep(time_to_wait * 800);
+		while (calc_elapsed_time(&philo->time_start) < target_time)
+			usleep(100);
+	}
+	*/
+
 	pthread_mutex_unlock(philo->fork_left);
 	pthread_mutex_unlock(philo->fork_right);
 	return (true);
@@ -249,6 +264,22 @@ bool	philo_sleep(t_data *data, t_philo *philo)
 {
 	if (!print_state(data, get_time() - data->time_start, philo->id, STATE_SLEEP))
 		return (false);
+
+	/*
+	usleep(data->time_to_sleep * 800);
+	while (get_time() - data->time_start >= data->time_to_sleep)
+		usleep(100);
+	*/
+
+	/*
+	static void	time_wait(philo, time_start_sleep + arg->time_to_sleep, arg->time_to_sleep)
+	{
+		usleep(time_to_wait * 800);
+		while (calc_elapsed_time(&philo->time_start) < target_time)
+			usleep(100);
+	}
+	*/
+
 	usleep(data->time_to_sleep * 1000);
 	return (true);
 }
@@ -266,8 +297,10 @@ void	*philo_routine(void *philo_void)
 	t_philo	*philo;
 
 	philo = philo_void;
+	pthread_mutex_lock(&philo->data->philo_mtx[philo->id - 1]);
 	philo->time_start = get_time();
 	philo->time_last_eat = philo->time_start;
+	pthread_mutex_unlock(&philo->data->philo_mtx[philo->id - 1]);
 	if (philo->id % 2 == 0)
 	{
 		if (!philo_think(philo->data, philo))
@@ -307,9 +340,8 @@ static bool	is_philo_starve(t_data *arg)
 		// if (arg->time_to_die < calc_elapsed_time(&arg->philo[i].time_last_eat))
 		if (arg->time_to_die < get_time() - arg->philo[i].time_last_eat)
 		{
-			printf("------------------------------------------------\n");
 			pthread_mutex_unlock(&arg->philo_mtx[i]);
-			arg->dead_num = 1;
+			arg->dead_num = i;
 			return (true);
 		}
 		pthread_mutex_unlock(&arg->philo_mtx[i]);
@@ -455,4 +487,45 @@ void	time_wait(long target_time, t_philo *philo)
 	while (calc_elapsed_time(&philo->time_start) < target_time)
 		usleep(100);
 }
+*/
+
+
+/*
+1000
+1001
+1002
+1003
+
+
+
+
+
+
+100
+
+data->time_to_eat0
+
+1000 + 100 = 1100
+usleep(data->time_eat * 800);
+while (get_time() - data->time_start >= 1100)
+	usleep(100)
+*/
+
+/*
+static void	time_wait(t_philo *philo, time_t target_time, time_t time_to_wait)
+{
+	usleep(time_to_wait * 800);
+	while (calc_elapsed_time(&philo->time_start) < target_time)
+		usleep(100);
+}
+*/
+/*
+static void	time_wait(philo, time_start_sleep + arg->time_to_sleep, arg->time_to_sleep)
+{
+	usleep(time_to_wait * 800);
+	while (calc_elapsed_time(&philo->time_start) < target_time)
+		usleep(100);
+}
+
+	time_wait(philo, time_start_sleep + arg->time_to_sleep, arg->time_to_sleep);
 */
