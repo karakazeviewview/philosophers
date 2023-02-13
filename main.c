@@ -50,7 +50,6 @@ void	ft_putstr_fd(const char *s, int fd)
 bool	print_error(const char *str)
 {
 	ft_putstr_fd(str, 2);
-	//printf("%s\n", str);
 	return (false);
 }
 
@@ -122,20 +121,21 @@ bool	check_arg(int argc, char const **argv)
 	long	ans;
 	char	c;
 
+	if (argc == 1)
+		return (print_error(ERROR_ARG_INVALID));
 	if (ft_atol(argv[1]) < 1)
 		return (print_error(ERROR_ARG_INVALID));
 	if (argc < 5 || 6 < argc)
 		return (print_error(ERROR_ARG_INVALID));
-	check_isnum(/* char const */ argv);
+	check_isnum(argv);
 		/* code */
-	ft_check_over(/* int */ sign, /* long */ ans , /* char */ c);
+	ft_check_over(sign, ans , c);
 		/* code */
 	return (true);
 }
 
 void	input_data(int argc, char const **argv, t_data *data)
 {
-	// atoi -> ft_atol
 	data->num_philo = ft_atol(argv[1]);
 	data->time_to_die = ft_atol(argv[2]);
 	data->time_to_eat = ft_atol(argv[3]);
@@ -223,6 +223,13 @@ bool	philo_take_fork(t_data *data, t_philo *philo)
 	return (true);
 }
 
+void	wait_time(t_data *data, long time_to_wait, long time_start_action)
+{
+	usleep(time_to_wait * 800);
+	while (get_time() - data->time_start < time_start_action + time_to_wait)
+		usleep(100);
+}
+
 bool	philo_eat(t_data *data, t_philo *philo)
 {
 	if (!philo_take_fork(data, philo))
@@ -238,7 +245,6 @@ bool	philo_eat(t_data *data, t_philo *philo)
 	}
 	philo->num_of_eaten += 1;
 	pthread_mutex_unlock(&data->philo_mtx[philo->id - 1]);
-	usleep(data->time_to_eat * 1000); // ok!
 
 	/*
 	usleep(data->time_to_eat * 800);
@@ -247,22 +253,25 @@ bool	philo_eat(t_data *data, t_philo *philo)
 	*/
 
 	/*
-	static void	time_wait(philo, time_start_sleep + arg->time_to_sleep, arg->time_to_sleep)
-	{
-		usleep(time_to_wait * 800);
-		while (calc_elapsed_time(&philo->time_start) < target_time)
-			usleep(100);
-	}
+	usleep(time_to_wait * 800);
+	while (calc_elapsed_time(&philo->time_start) < target_time)
+		usleep(100);
 	*/
 
+	wait_time(data, data->time_to_eat, philo->time_last_eat - data->time_start);
+	// usleep(data->time_to_eat * 1000); // ok!
 	pthread_mutex_unlock(philo->fork_left);
 	pthread_mutex_unlock(philo->fork_right);
 	return (true);
 }
 
+
 bool	philo_sleep(t_data *data, t_philo *philo)
 {
-	if (!print_state(data, get_time() - data->time_start, philo->id, STATE_SLEEP))
+	long	time_start_sleep;
+
+	time_start_sleep = get_time() - data->time_start;
+	if (!print_state(data, time_start_sleep, philo->id, STATE_SLEEP))
 		return (false);
 
 	/*
@@ -272,15 +281,13 @@ bool	philo_sleep(t_data *data, t_philo *philo)
 	*/
 
 	/*
-	static void	time_wait(philo, time_start_sleep + arg->time_to_sleep, arg->time_to_sleep)
-	{
-		usleep(time_to_wait * 800);
-		while (calc_elapsed_time(&philo->time_start) < target_time)
-			usleep(100);
-	}
+	usleep(time_to_wait * 800);
+	while (calc_elapsed_time(&philo->time_start) < target_time)
+		usleep(100);
 	*/
 
-	usleep(data->time_to_sleep * 1000);
+	wait_time(data, data->time_to_sleep, time_start_sleep);
+	// usleep(data->time_to_sleep * 1000);
 	return (true);
 }
 
@@ -309,8 +316,8 @@ void	*philo_routine(void *philo_void)
 	}
 	while (1)
 	{
-		//if (!philo_take_fork(philo->data, philo))
-			//break ;
+		// if (!philo_take_fork(philo->data, philo))
+			// break ;
 		if (!philo_eat(philo->data, philo))
 			break ;
 		if (!philo_sleep(philo->data, philo))
@@ -489,17 +496,11 @@ void	time_wait(long target_time, t_philo *philo)
 }
 */
 
-
 /*
 1000
 1001
 1002
 1003
-
-
-
-
-
 
 100
 
@@ -529,3 +530,4 @@ static void	time_wait(philo, time_start_sleep + arg->time_to_sleep, arg->time_to
 
 	time_wait(philo, time_start_sleep + arg->time_to_sleep, arg->time_to_sleep);
 */
+// newest Feb14
